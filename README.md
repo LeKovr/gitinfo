@@ -21,3 +21,33 @@ Get git repo metagata (lib) and generate gitinfo.json via go generate (cmd)
 [gr2]: https://github.com/LeKovr/gitinfo/releases
 [gl1]: https://img.shields.io/github/license/LeKovr/gitinfo.svg
 [gl2]: https://github.com/LeKovr/gitinfo/blob/master/LICENSE
+
+## Requirements
+
+`git` binary have to be in $PATH
+
+## Install
+
+```
+go get github.com/LeKovr/gitinfo/...
+```
+## Usage
+
+```go
+import "github.com/LeKovr/gitinfo"
+
+func main() {
+    data, err := gitinfo.New("sql/")
+    if err != nil {
+	return err
+    }
+    log.Printf("%#v\n",data)
+}
+```
+
+## Generate
+
+```
+//go:generate gitinfo sql/
+```
+

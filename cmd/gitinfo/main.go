@@ -8,9 +8,6 @@ import (
 	"os"
 )
 
-// Actual version value will be set at build time
-var version = "0.0-dev"
-
 func main() {
 	run(os.Exit)
 }

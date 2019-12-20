@@ -83,3 +83,10 @@ func TestModified(t *testing.T) {
 		t.Fatalf("Call must return error")
 	}
 }
+
+func TestMkTime(t *testing.T) {
+	var rv *time.Time
+	err := MkTime([]byte("xxx"), rv)
+
+	assert.NotNil(t, err)
+}

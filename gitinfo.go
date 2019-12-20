@@ -7,26 +7,32 @@ import (
 	"time"
 )
 
-type Meta struct {
-	Version    string
-	Repository string
-	Modified   time.Time
+type GitInfo struct {
+	Version    string    `json:"version"`
+	Repository string    `json:"repository"`
+	Modified   time.Time `json:"modified"`
+	Path       string    `json:"-"`
+	UseGit     bool      `json:"-"`
 }
 
-func Metadata(path string) (rv *Meta, err error) {
+func New(path string) (rv *GitInfo, err error) {
 
-	rv = &Meta{}
-	err = Version(path, &rv.Version)
-	if err != nil {
-		return
+	now := time.Now()
+	rv = &GitInfo{
+		Path:       path,
+		Repository: "(none)",
+		Modified:   now, // TODO: last change of dir content
+		Version:    "v0.0.0-" + now.Format("20060102150405"),
 	}
-	err = Repository(path, &rv.Repository)
-	if err != nil {
-		return
+
+	if _, err := exec.LookPath("git"); err == nil {
+		rv.UseGit = true
 	}
-	err = Modified(path, &rv.Modified)
-	if err != nil {
-		return
+	if rv.UseGit {
+		// error means path is not git repo, so skip them
+		_ = Version(path, &rv.Version)
+		_ = Repository(path, &rv.Repository)
+		_ = Modified(path, &rv.Modified)
 	}
 	return
 }
@@ -57,7 +63,11 @@ func Modified(path string, rv *time.Time) error {
 	if err != nil {
 		return err
 	}
-	tm, err := strconv.ParseInt(string(out), 10, 64)
+	return MkTime(out, rv)
+}
+
+func MkTime(in []byte, rv *time.Time) error {
+	tm, err := strconv.ParseInt(string(in), 10, 64)
 	if err != nil {
 		return err
 	}
