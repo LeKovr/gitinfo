@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// GitInfo holds git repository metadata
 type GitInfo struct {
 	Version    string    `json:"version"`
 	Repository string    `json:"repository"`
@@ -15,6 +16,7 @@ type GitInfo struct {
 	UseGit     bool      `json:"-"`
 }
 
+// New returns git info
 func New(path string) (rv *GitInfo, err error) {
 
 	now := time.Now()
@@ -66,6 +68,7 @@ func Modified(path string, rv *time.Time) error {
 	return MkTime(out, rv)
 }
 
+// MkTime converts []byte to time.Time
 func MkTime(in []byte, rv *time.Time) error {
 	tm, err := strconv.ParseInt(string(in), 10, 64)
 	if err != nil {

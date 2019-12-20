@@ -78,6 +78,7 @@ func run(exitFunc func(code int)) {
 	}
 }
 
+// ProcessRepo writes repository metadata into .json file
 func ProcessRepo(cfg *Config, path string) error {
 	if cfg.Debug {
 		log.Printf("Looking in %s", path)
