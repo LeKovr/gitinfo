@@ -2,6 +2,7 @@ package gitinfo
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -11,9 +12,13 @@ func ExampleNew() {
 	if err != nil {
 		fmt.Printf("%#v\n", err)
 	}
-	fmt.Printf("%v\n%v\n%s\n", data.Modified != time.Time{}, data.Version != "", data.Repository)
+	fmt.Printf("%v\n%v\n%v\n",
+		data.Modified != time.Time{},
+		data.Version != "",
+		strings.HasSuffix(data.Repository, "LeKovr/gitinfo.git"),
+	)
 	// Output:
 	// true
 	// true
-	// git@github.com:LeKovr/gitinfo.git
+	// true
 }
