@@ -1,9 +1,12 @@
 # ---> Go
 # Binaries for programs and plugins
-gitinfo
+/gitinfo
 
 # Test binary, build with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Generated sample file
+gitinfo.json

@@ -7,6 +7,30 @@ import (
 	"time"
 )
 
+type Meta struct {
+	Version    string
+	Repository string
+	Modified   time.Time
+}
+
+func Metadata(path string) (rv *Meta, err error) {
+
+	rv = &Meta{}
+	err = Version(path, &rv.Version)
+	if err != nil {
+		return
+	}
+	err = Repository(path, &rv.Repository)
+	if err != nil {
+		return
+	}
+	err = Modified(path, &rv.Modified)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // Version fills rv with package version from git
 func Version(path string, rv *string) error {
 	out, err := exec.Command("git", "-C", path, "describe", "--tags", "--always").Output()
