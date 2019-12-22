@@ -4,7 +4,7 @@ import (
 	"errors"
 	//	"fmt"
 
-	"github.com/lekovr/gitinfo"
+	"github.com/pgmig/gitinfo"
 	"github.com/jessevdk/go-flags"
 )
 

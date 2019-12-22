@@ -23,7 +23,7 @@ func ExampleNew() {
 	fmt.Printf("%v\n%v\n%v\n",
 		gi.Modified != time.Time{},
 		gi.Version != "",
-		strings.HasSuffix(gi.Repository, "LeKovr/gitinfo.git"),
+		strings.HasSuffix(gi.Repository, "pgmig/gitinfo.git"),
 	)
 	// Output:
 	// true

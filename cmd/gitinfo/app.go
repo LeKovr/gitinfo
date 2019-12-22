@@ -8,7 +8,7 @@ import (
 
 	"strings"
 
-	"github.com/lekovr/gitinfo"
+	"github.com/pgmig/gitinfo"
 )
 
 var (

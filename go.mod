@@ -1,4 +1,4 @@
-module github.com/lekovr/gitinfo
+module github.com/pgmig/gitinfo
 
 go 1.13
 
