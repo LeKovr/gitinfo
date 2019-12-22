@@ -4,6 +4,7 @@ import (
 	"errors"
 	//	"fmt"
 
+	"github.com/LeKovr/gitinfo"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -14,6 +15,7 @@ type Config struct {
 	Args  struct {
 		Path string `description:"path to repository dir(s)"`
 	} `positional-args:"yes" required:"yes"`
+	GitInfo gitinfo.Config `group:"GitInfo Options" namespace:"gi"`
 }
 
 var (

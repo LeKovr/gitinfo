@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"os"
 	"path/filepath"
+
 	"strings"
 
 	"github.com/LeKovr/gitinfo"
@@ -38,30 +38,39 @@ func run(exitFunc func(code int)) {
 	}
 
 	if !strings.HasSuffix(path, "/") {
-		err = ProcessRepo(cfg, path)
+		err = gitinfo.New(cfg.GitInfo).Write(path, nil)
 		return
 	}
 
-	d, err := os.Open(path)
+	var (
+		d      *os.File
+		files  []os.FileInfo
+		linked string
+		fi     os.FileInfo
+	)
+
+	d, err = os.Open(path)
 	if err != nil {
 		return
 	}
 	defer d.Close()
-	files, err := d.Readdir(-1)
+	files, err = d.Readdir(-1)
 	if err != nil {
 		return
 	}
+	gi := gitinfo.New(cfg.GitInfo)
+
 	for _, file := range files {
 		if file.Mode().IsDir() || file.Mode()&os.ModeSymlink != 0 {
 			src := filepath.Join(path, file.Name())
 			if !file.Mode().IsDir() {
 
 				// resolve symlink
-				linked, err := filepath.EvalSymlinks(src)
+				linked, err = filepath.EvalSymlinks(src)
 				if err != nil {
 					return
 				}
-				fi, err := os.Lstat(linked)
+				fi, err = os.Lstat(linked)
 				if err != nil {
 					return
 				}
@@ -70,37 +79,12 @@ func run(exitFunc func(code int)) {
 				}
 			}
 
-			err = ProcessRepo(cfg, src)
+			err = gi.Write(src, nil)
 			if err != nil {
 				return
 			}
 		}
 	}
-}
-
-// ProcessRepo writes repository metadata into .json file
-func ProcessRepo(cfg *Config, path string) error {
-	if cfg.Debug {
-		log.Printf("Looking in %s", path)
-	}
-	data, err := gitinfo.New(path)
-	if err != nil {
-		return err
-	}
-	fn := filepath.Join(path, cfg.Out)
-	f, err := os.Create(fn)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	out, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	_, err = f.WriteString(string(out) + "\n") //ioutil.WriteFile(p, out, os.FileMode(mode))
-	return err
 }
 
 // exit after deferred cleanups have run
@@ -114,7 +98,7 @@ func shutdown(exitFunc func(code int), e error) {
 			code = 2
 		default:
 			code = 1
-			log.Printf("Run error: %+v", e)
+			log.Printf("Run error: %#v", e)
 		}
 		exitFunc(code)
 	}
