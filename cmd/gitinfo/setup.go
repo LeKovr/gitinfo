@@ -10,8 +10,7 @@ import (
 
 // Config holds all config vars
 type Config struct {
-	Debug bool   `long:"debug" description:"Show debug data"`
-	Out   string `long:"out" default:"gitinfo.json" description:"Output filename"`
+	Debug bool `long:"debug" description:"Show debug data"`
 	Args  struct {
 		Path string `description:"path to repository dir(s)"`
 	} `positional-args:"yes" required:"yes"`
