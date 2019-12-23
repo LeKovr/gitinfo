@@ -3,8 +3,8 @@ package gitinfo
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +17,8 @@ import (
 type Config struct {
 	Debug bool   `long:"debug" description:"Show debug data"`
 	File  string `long:"file" default:"gitinfo.json" description:"GitInfo json filename"`
+	// Root may be hardcoded if app uses embedded FS, so do not show it in help
+	Root string
 }
 
 type GitInfo struct {
@@ -38,6 +40,9 @@ func New(cfg Config) *Service {
 
 // Make prepares GitInfo data
 func (srv Service) Make(path string, gi *GitInfo) error {
+	if srv.Config.Root != "" {
+		path = filepath.Join(srv.Config.Root, path)
+	}
 	// check for dir exists
 	info, err := os.Stat(path)
 	if err != nil { //os.IsNotExist(err) {
@@ -113,29 +118,6 @@ func (srv Service) Write(path string, gi *GitInfo) error {
 	return nil
 }
 
-// Red reads GitInfo data from file
-func (srv Service) Read(fs http.FileSystem, path string) (*GitInfo, error) {
-
-	fn := filepath.Join(path, srv.Config.File)
-	file, err := fs.Open(fn)
-	if err != nil {
-		return nil, errors.Wrap(err, "Open gitinfo file")
-	}
-	defer file.Close()
-
-	js, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "Open gitinfo file")
-	}
-
-	gi := GitInfo{}
-	err = json.Unmarshal(js, &gi)
-	if err != nil {
-		return nil, errors.Wrap(err, "Parse gitinfo file")
-	}
-	return &gi, nil
-}
-
 // Version fills rv with package version from git
 func Version(path string, rv *string) error {
 	out, err := exec.Command("git", "-C", path, "describe", "--tags", "--always").Output()
@@ -173,4 +155,53 @@ func MkTime(in []byte, rv *time.Time) error {
 	}
 	*rv = time.Unix(tm, 0)
 	return nil
+}
+
+// File is an interface for FileSystem.Open func
+type File interface {
+	io.Closer
+	io.Reader
+	io.Seeker
+	Readdir(count int) ([]os.FileInfo, error)
+	Stat() (os.FileInfo, error)
+}
+
+// FileSystem holds all of used filesystem access methods
+type FileSystem interface {
+	Walk(root string, walkFn filepath.WalkFunc) error
+	Open(name string) (File, error)
+}
+
+// Read reads GitInfo data from file
+func (srv Service) Read(fs FileSystem, path string) (*GitInfo, error) {
+
+	fn := filepath.Join(path, srv.Config.File)
+	file, err := fs.Open(fn)
+	if err != nil {
+		return nil, errors.Wrap(err, "Open gitinfo file")
+	}
+	defer file.Close()
+
+	js, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "Read gitinfo file")
+	}
+
+	gi := GitInfo{}
+	err = json.Unmarshal(js, &gi)
+	if err != nil {
+		return nil, errors.Wrap(err, "Parse gitinfo file")
+	}
+	return &gi, nil
+}
+
+// ReadOrMake reads GitInfo data from file or makes it from git
+func (srv Service) ReadOrMake(fs FileSystem, path string) (*GitInfo, error) {
+
+	gi, err := srv.Read(fs, path)
+	if err != nil {
+		gi = &GitInfo{}
+		err = srv.Make(path, gi)
+	}
+	return gi, err
 }
