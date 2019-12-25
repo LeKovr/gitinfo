@@ -3,6 +3,7 @@ package gitinfo
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	"log"
 	"strings"
 	"time"
 )
@@ -13,7 +14,9 @@ func ExampleNew() {
 	// Fill config with default values
 	p := flags.NewParser(&cfg, flags.Default|flags.IgnoreUnknown)
 	_, err := p.Parse()
-	//        require.NoError(ss.T(), err)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var gi GitInfo
 	err = New(cfg).Make("cmd/", &gi)

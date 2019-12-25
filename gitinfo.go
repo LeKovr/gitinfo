@@ -1,3 +1,13 @@
+// Package gitinfo used for generate and read gitinfo.json file
+// which contains git repository data like this:
+// ```
+// {
+//   "version": "v0.33-1-g4f4575a",
+//   "repository": "https://github.com/pgmig-sql/pgmig.git",
+//   "modified": "2019-12-24T02:44:51+03:00"
+// }
+// ```
+// This file is intended to be included in embedded FS
 package gitinfo
 
 import (
@@ -5,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,13 +32,14 @@ type Config struct {
 	Root string
 }
 
+// GitInfo holds git repository metadata
 type GitInfo struct {
 	Version    string    `json:"version"`
 	Repository string    `json:"repository"`
 	Modified   time.Time `json:"modified"`
 }
 
-// GitInfo holds git repository metadata
+// Service holds service data
 type Service struct {
 	Config
 	GI *GitInfo
@@ -91,7 +103,7 @@ func (srv Service) Write(path string, gi *GitInfo) error {
 
 	if gi == nil {
 		if srv.Config.Debug {
-			//log.Printf("Looking in %s", path)
+			log.Printf("Looking in %s", path)
 		}
 		gi = &GitInfo{}
 		err := srv.Make(path, gi)
