@@ -1,12 +1,10 @@
 // Package gitinfo used for generate and read gitinfo.json file
 // which contains git repository data like this:
-// ```
-// {
-//   "version": "v0.33-1-g4f4575a",
-//   "repository": "https://github.com/pgmig-sql/pgmig.git",
-//   "modified": "2019-12-24T02:44:51+03:00"
-// }
-// ```
+//  {
+//    "version": "v0.33-1-g4f4575a",
+//    "repository": "https://github.com/pgmig-sql/pgmig.git",
+//    "modified": "2019-12-24T02:44:51+03:00"
+//  }
 // This file is intended to be included in embedded FS
 package gitinfo
 
