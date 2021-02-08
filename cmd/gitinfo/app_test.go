@@ -21,8 +21,8 @@ func TestRunErrors(t *testing.T) {
 		{"Help", 3, []string{"-h"}},
 		{"UnknownFlag", 2, []string{"-0"}},
 		{"Path is empty", 1, []string{}},
-		{"Permission denied (do not run as root)", 1, []string{"/var"}},
-		{"File is not a dir", 0, []string{"main.go"}},
+		{"Cannot write file", 1, []string{"--gi.file", ".", "."}},
+		{"File is not a dir (skip)", 0, []string{"main.go"}},
 	}
 	for _, tt := range tests {
 		os.Args = append([]string{a[0]}, tt.args...)
