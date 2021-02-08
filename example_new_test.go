@@ -40,23 +40,3 @@ func ExampleNew() {
 	// true
 	// true
 }
-
-func ExampleService_Make() {
-	log := genericr.New(func(e genericr.Entry) {
-		fmt.Fprintln(os.Stderr, e.String())
-	})
-	gi := gitinfo.GitInfo{}
-	err := gitinfo.New(log, gitinfo.Config{}).Make("cmd/", &gi)
-	if err != nil {
-		fmt.Printf("%#v\n", err)
-	}
-	fmt.Printf("%v\n%v\n%v\n",
-		gi.Modified != time.Time{},
-		gi.Version != "",
-		strings.HasSuffix(gi.Repository, "pgmig/gitinfo.git"),
-	)
-	// Output:
-	// true
-	// true
-	// true
-}

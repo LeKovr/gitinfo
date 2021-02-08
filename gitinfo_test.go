@@ -2,14 +2,13 @@ package gitinfo_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,7 @@ const myRepoSuffix = "pgmig/gitinfo.git"
 
 var (
 	testHasGit bool
-	tempDir    string
+	log        logr.Logger
 )
 
 func TestMain(m *testing.M) {
@@ -30,63 +29,28 @@ func TestMain(m *testing.M) {
 	if _, err := exec.LookPath("git"); err == nil {
 		testHasGit = true
 	}
-	if testHasGit {
-		var err error
-		tempDir, err = ioutil.TempDir("/tmp/", "gitinfo-test")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer os.RemoveAll(tempDir)
-	}
+	log = genericr.New(func(e genericr.Entry) {
+		fmt.Fprintln(os.Stderr, e.String())
+	})
 	os.Exit(m.Run())
 }
 
-func TestVersion(t *testing.T) {
-	if !testHasGit {
-		t.Skip("git not found, skipping")
-	}
-	var rv string
-	if err := gitinfo.Version(".", &rv); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.NotEqual(t, rv, "")
-	if err := gitinfo.Version(tempDir, &rv); err == nil {
-		t.Fatalf("Call must return error")
-	}
+func TestVersionError(t *testing.T) {
+	gi := gitinfo.New(log, gitinfo.Config{})
+	require.NotNil(t, gi.Version(".", nil))
 }
 
-func TestRepository(t *testing.T) {
-	if !testHasGit {
-		t.Skip("git not found, skipping")
-	}
-	var rv string
-	if err := gitinfo.Repository(".", &rv); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.NotEqual(t, rv, "")
-	if err := gitinfo.Repository(tempDir, &rv); err == nil {
-		t.Fatalf("Call must return error")
-	}
+func TestRepositoryError(t *testing.T) {
+	gi := gitinfo.New(log, gitinfo.Config{})
+	require.NotNil(t, gi.Repository(".", nil))
 }
 
-func TestModified(t *testing.T) {
-	if !testHasGit {
-		t.Skip("git not found, skipping")
-	}
-	var rv, zeroTm time.Time
-	if err := gitinfo.Modified(".", &rv); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.NotEqual(t, rv, zeroTm)
-	if err := gitinfo.Modified(tempDir, &rv); err == nil {
-		t.Fatalf("Call must return error")
-	}
+func TestModifiedError(t *testing.T) {
+	gi := gitinfo.New(log, gitinfo.Config{})
+	require.NotNil(t, gi.Modified(".", nil))
 }
 
 func TestMakeErrors(t *testing.T) {
-	log := genericr.New(func(e genericr.Entry) {
-		fmt.Fprintln(os.Stderr, e.String())
-	})
 	gi := gitinfo.New(log, gitinfo.Config{})
 	tests := []struct {
 		name string
@@ -103,10 +67,14 @@ func TestMakeErrors(t *testing.T) {
 	gi = gitinfo.New(log, gitinfo.Config{Root: "."})
 	err := gi.Make(".notexists", nil)
 	if !errors.Is(err, os.ErrNotExist) {
-		// Not error we want
+		// We want different error
 		require.NoError(t, err)
 	}
+}
 
+func TestMake(t *testing.T) {
+	gi := gitinfo.New(log, gitinfo.Config{})
+	require.NoError(t, gi.Make(".", nil))
 }
 
 type testFS struct{}
@@ -114,11 +82,8 @@ type testFS struct{}
 func (fs testFS) Open(name string) (gitinfo.File, error) { return os.Open(name) }
 
 func TestWrite(t *testing.T) {
-	log := genericr.New(func(e genericr.Entry) {
-		fmt.Fprintln(os.Stderr, e.String())
-	})
 	tmpName := "tmpfile"
-	gi := gitinfo.New(log, gitinfo.Config{File: tmpName})
+	gi := gitinfo.New(log, gitinfo.Config{File: tmpName, GitBin: "git", Root: "."})
 	err := gi.Write(".", nil)
 	require.NoError(t, err)
 
@@ -130,7 +95,6 @@ func TestWrite(t *testing.T) {
 	data, err = gi.ReadOrMake(testFS{}, ".")
 	require.NoError(t, err)
 	require.True(t, strings.HasSuffix(data.Repository, myRepoSuffix))
-
 }
 
 func TestMkTime(t *testing.T) {

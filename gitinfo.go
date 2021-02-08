@@ -25,8 +25,9 @@ import (
 
 // Config holds all config vars
 type Config struct {
-	Debug bool   `long:"debug" description:"Show debug data"`
-	File  string `long:"file" default:"gitinfo.json" description:"GitInfo json filename"`
+	Debug  bool   `long:"debug" description:"Show debug data"`
+	File   string `long:"file" default:"gitinfo.json" description:"GitInfo json filename"`
+	GitBin string `long:"gitbin" default:"git" description:"Git binary name"`
 	// Root may be hardcoded if app uses embedded FS, so do not showed in help
 	Root string
 }
@@ -43,6 +44,7 @@ type Service struct {
 	Config Config
 	Log    logr.Logger
 	GI     *GitInfo
+	useGit bool
 }
 
 var (
@@ -54,7 +56,13 @@ var (
 
 // New returns service object with config
 func New(log logr.Logger, cfg Config) *Service {
-	return &Service{Config: cfg, Log: log}
+	var useGit bool
+	if _, err := exec.LookPath(cfg.GitBin); err != nil {
+		log.Error(err, "No git binary found")
+	} else {
+		useGit = true
+	}
+	return &Service{Config: cfg, Log: log, useGit: useGit}
 }
 
 // Make prepares GitInfo data
@@ -78,24 +86,14 @@ func (srv Service) Make(path string, gi *GitInfo) error {
 	}
 	log := srv.Log.WithValues("path", path)
 	// check for git bin available
-	if _, err := exec.LookPath("git"); err == nil {
+	if srv.useGit {
 		// check for dir is a repo
-		if err = Repository(path, &gi.Repository); err == nil {
+		if err = srv.Repository(path, &gi.Repository); err == nil {
 			useGit = true
 		}
 	}
 	now := time.Now() // MAYBE: last change of dir content?
-	if useGit {
-		if err = Version(path, &gi.Version); err != nil {
-			// Repo has no tags, generate own
-			log.Info("repo tag not found")
-			gi.Version = "v0.0.0-" + now.Format("20060102150405")
-		}
-		if err = Modified(path, &gi.Modified); err != nil {
-			log.Info("set Modified = now")
-			gi.Modified = now
-		}
-	} else {
+	if !useGit {
 		log.Info("git is not available")
 		abs, err := filepath.Abs(path)
 		if err != nil {
@@ -103,6 +101,17 @@ func (srv Service) Make(path string, gi *GitInfo) error {
 		}
 		gi.Repository = "file://" + abs
 		gi.Version = "v0.0.0-" + now.Format("20060102150405")
+		gi.Modified = now
+		return nil
+	}
+
+	if err = srv.Version(path, &gi.Version); err != nil {
+		// Repo has no tags, generate own
+		log.Info("repo tag not found")
+		gi.Version = "v0.0.0-" + now.Format("20060102150405")
+	}
+	if err = srv.Modified(path, &gi.Modified); err != nil {
+		log.Info("set Modified = now")
 		gi.Modified = now
 	}
 	return nil
@@ -137,8 +146,11 @@ func (srv Service) Write(path string, gi *GitInfo) error {
 }
 
 // Version fills rv with package version from git
-func Version(path string, rv *string) error {
-	out, err := exec.Command("git", "-C", path, "describe", "--tags", "--always").Output()
+func (srv Service) Version(path string, rv *string) error {
+	if srv.Config.Root != "" {
+		path = filepath.Join(srv.Config.Root, path)
+	}
+	out, err := exec.Command(srv.Config.GitBin, "-C", path, "describe", "--tags", "--always").Output()
 	if err != nil {
 		return errors.Wrap(err, "Git describe")
 	}
@@ -147,8 +159,11 @@ func Version(path string, rv *string) error {
 }
 
 // Repository fills rv with package repo from git
-func Repository(path string, rv *string) error {
-	out, err := exec.Command("git", "-C", path, "config", "--get", "remote.origin.url").Output()
+func (srv Service) Repository(path string, rv *string) error {
+	if srv.Config.Root != "" {
+		path = filepath.Join(srv.Config.Root, path)
+	}
+	out, err := exec.Command(srv.Config.GitBin, "-C", path, "config", "--get", "remote.origin.url").Output()
 	if err != nil {
 		return errors.Wrap(err, "Git repo")
 	}
@@ -157,8 +172,11 @@ func Repository(path string, rv *string) error {
 }
 
 // Modified fills rv with package last commit timestamp
-func Modified(path string, rv *time.Time) error {
-	out, err := exec.Command("git", "-C", path, "show", "-s", "--format=format:%ct", "HEAD").Output()
+func (srv Service) Modified(path string, rv *time.Time) error {
+	if srv.Config.Root != "" {
+		path = filepath.Join(srv.Config.Root, path)
+	}
+	out, err := exec.Command(srv.Config.GitBin, "-C", path, "show", "-s", "--format=format:%ct", "HEAD").Output()
 	if err != nil {
 		return errors.Wrap(err, "Git show")
 	}
@@ -169,9 +187,6 @@ func Modified(path string, rv *time.Time) error {
 type File interface {
 	io.Closer
 	io.Reader
-	//	io.Seeker
-	//	Readdir(count int) ([]os.FileInfo, error)
-	//	Stat() (os.FileInfo, error)
 }
 
 // FileSystem holds all of used filesystem access methods
