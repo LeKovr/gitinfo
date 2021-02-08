@@ -27,7 +27,7 @@ import (
 type Config struct {
 	Debug bool   `long:"debug" description:"Show debug data"`
 	File  string `long:"file" default:"gitinfo.json" description:"GitInfo json filename"`
-	// Root may be hardcoded if app uses embedded FS, so do not show it in help
+	// Root may be hardcoded if app uses embedded FS, so do not showed in help
 	Root string
 }
 
@@ -213,27 +213,29 @@ func (srv Service) ReadOrMake(fs FileSystem, path string) (*GitInfo, error) {
 func fileIsDirOrDirLink(path string) (bool, error) {
 	file, err := os.Stat(path)
 	if err != nil {
-
 		return false, err
 	}
 	if file.IsDir() {
 		return true, nil
 	}
-	if file.Mode()&os.ModeSymlink != 0 {
-		var linkSrc string
-		linkSrc, err = filepath.EvalSymlinks(filepath.Join(path, file.Name()))
+	if file.Mode()&os.ModeSymlink == 0 {
+		return false, nil
+	}
+	// check symlink
+	var linkSrc string
+	linkDst := filepath.Join(path, file.Name())
+	linkSrc, err = filepath.EvalSymlinks(linkDst)
+	if err == nil {
+		var fi os.FileInfo
+		fi, err = os.Lstat(linkSrc)
 		if err == nil {
-			var fi os.FileInfo
-			fi, err = os.Lstat(linkSrc)
-			if err == nil {
-				return fi.IsDir(), nil
-			}
+			return fi.IsDir(), nil
 		}
 	}
 	return false, err
 }
 
-// MkTime converts to time.Time result of git show -s --format=format:%ct HEAD
+// MkTime converts to time.Time result of `git show -s --format=format:%ct HEAD`
 func MkTime(in []byte, rv *time.Time) error {
 	tm, err := strconv.ParseInt(string(in), 10, 64)
 	if err != nil {

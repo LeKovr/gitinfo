@@ -7,7 +7,6 @@ require (
 	github.com/go-logr/zapr v0.4.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-colorable v0.1.8
-	github.com/pgmig/pgmig v0.35.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.4.0
 	github.com/wojas/genericr v0.2.0

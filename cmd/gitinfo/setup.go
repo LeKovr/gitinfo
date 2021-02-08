@@ -31,43 +31,39 @@ var (
 func SetupConfig(args ...string) (*Config, error) {
 	cfg := &Config{}
 	p := flags.NewParser(cfg, flags.Default|flags.PrintErrors) //  HelpFlag | PrintErrors | PassDoubleDash
-
 	var err error
 	if len(args) == 0 {
 		_, err = p.Parse()
 	} else {
 		_, err = p.ParseArgs(args)
 	}
-	if err != nil {
-		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
-			return nil, ErrGotHelp
-		}
-		return nil, ErrBadArgs
+	if err == nil {
+		return cfg, nil
 	}
-	return cfg, nil
+	if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
+		return nil, ErrGotHelp
+	}
+	return nil, ErrBadArgs
 }
 
 // SetupLog creates logger
 func SetupLog(withDebug bool, opts ...zap.Option) logr.Logger {
-	var log logr.Logger
+	var zapLog *zap.Logger
 	if withDebug {
 		aa := zap.NewDevelopmentEncoderConfig()
 		zo := append(opts, zap.AddCaller())
 		aa.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		zapLog := zap.New(zapcore.NewCore(
+		zapLog = zap.New(zapcore.NewCore(
 			zapcore.NewConsoleEncoder(aa),
 			zapcore.AddSync(colorable.NewColorableStdout()),
 			zapcore.DebugLevel,
 		),
 			zo...,
 		)
-		log = zapr.NewLogger(zapLog)
 	} else {
-		zc := zap.NewProductionConfig()
-		zapLog, _ := zc.Build(opts...)
-		log = zapr.NewLogger(zapLog)
+		zapLog, _ = zap.NewProduction(opts...)
 	}
-	return log
+	return zapr.NewLogger(zapLog)
 }
 
 // Shutdown runs exit after deferred cleanups have run
