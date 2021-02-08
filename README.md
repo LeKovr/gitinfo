@@ -22,6 +22,21 @@
 [gl1]: https://img.shields.io/github/license/pgmig/gitinfo.svg
 [gl2]: https://github.com/pgmig/gitinfo/blob/master/LICENSE
 
+This package uses external `git` binary for creating a file with git metagata like
+
+```json
+{
+  "version": "v0.12.0-1-g99a5776",
+  "repository": "git@github.com:pgmig/gitinfo.git",
+  "modified": "2021-02-08T23:00:47+03:00"
+}
+```
+
+This file (named `gitinfo.json by default) used later for
+
+* embedding with filesystems
+* showing project metagata
+
 ## Install
 
 ```sh
@@ -36,15 +51,15 @@ Run go:generate just before embedding:
 
 ```go
 // Generate gitinfo.json
-//go:generate gitinfo ../../../html
+//go:generate gitinfo ../../html
 
 // Generate resource.go by [parcello](github.com/phogolabs/parcello)
-//go:generate parcello -q -r -d ../../../html
+//go:generate parcello -q -r -d ../../html
 ```
 
 ### Read gitinfo.json
 
-Read metadata from .gitinfo.json if it exists. Fetch from git otherwise
+Read metadata from .gitinfo.json if it exists, fetch from git otherwise
 
 ```go
 var gi gitinfo.GitInfo
@@ -58,6 +73,8 @@ err = gitinfo.New(log, cfg).Make("cmd/", &gi)
 ```
 
 ### Generate gitinfo.json files for dir/*/ dirs
+
+Used when dir contains git submodules
 
 ```go
 //go:generate gitinfo dir/*
