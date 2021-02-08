@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 
 	"github.com/pgmig/gitinfo"
 )
+
+const myRepoSuffix = "pgmig/gitinfo.git"
 
 var (
 	testHasGit bool
@@ -122,11 +125,11 @@ func TestWrite(t *testing.T) {
 	data, err := gi.Read(testFS{}, ".")
 	os.Remove(tmpName)
 	require.NoError(t, err)
-	require.Equal(t, "git@github.com:pgmig/gitinfo.git", data.Repository)
+	require.True(t, strings.HasSuffix(data.Repository, myRepoSuffix))
 
 	data, err = gi.ReadOrMake(testFS{}, ".")
 	require.NoError(t, err)
-	require.Equal(t, "git@github.com:pgmig/gitinfo.git", data.Repository)
+	require.True(t, strings.HasSuffix(data.Repository, myRepoSuffix))
 
 }
 
