@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	run(os.Exit)
+	Run(os.Exit)
 }

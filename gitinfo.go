@@ -10,16 +10,17 @@ package gitinfo
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 )
 
 // Config holds all config vars
@@ -39,13 +40,21 @@ type GitInfo struct {
 
 // Service holds service data
 type Service struct {
-	Config
-	GI *GitInfo
+	Config Config
+	Log    logr.Logger
+	GI     *GitInfo
 }
 
+var (
+	// ErrPathMustNotBeEmpty raised if given path is empty
+	ErrPathMustNotBeEmpty = errors.New("Path must not be empty")
+	// ErrPathMustBeDir raised if given path is not directory
+	ErrPathMustBeDir = errors.New("Path must be a directory")
+)
+
 // New returns service object with config
-func New(cfg Config) *Service {
-	return &Service{Config: cfg}
+func New(log logr.Logger, cfg Config) *Service {
+	return &Service{Config: cfg, Log: log}
 }
 
 // Make prepares GitInfo data
@@ -53,17 +62,21 @@ func (srv Service) Make(path string, gi *GitInfo) error {
 	if srv.Config.Root != "" {
 		path = filepath.Join(srv.Config.Root, path)
 	}
-	// check for dir exists
-	info, err := os.Stat(path)
-	if err != nil { //os.IsNotExist(err) {
+	if path == "" {
+		return ErrPathMustNotBeEmpty
+	}
+	isDir, err := fileIsDirOrDirLink(path)
+	if err != nil {
 		return errors.Wrap(err, "Path is not available")
 	}
-	if !info.IsDir() {
-		return errors.Wrap(err, "Path is not directory")
+	if !isDir {
+		return ErrPathMustBeDir
 	}
-
 	useGit := false
-
+	if gi == nil {
+		gi = &GitInfo{}
+	}
+	log := srv.Log.WithValues("path", path)
 	// check for git bin available
 	if _, err := exec.LookPath("git"); err == nil {
 		// check for dir is a repo
@@ -71,38 +84,35 @@ func (srv Service) Make(path string, gi *GitInfo) error {
 			useGit = true
 		}
 	}
-
-	now := time.Now()
-
+	now := time.Now() // MAYBE: last change of dir content?
 	if useGit {
 		if err = Version(path, &gi.Version); err != nil {
 			// Repo has no tags, generate own
-			// TODO: log.warn
+			log.Info("repo tag not found")
 			gi.Version = "v0.0.0-" + now.Format("20060102150405")
 		}
 		if err = Modified(path, &gi.Modified); err != nil {
-			// TODO: log.warn
-			gi.Modified = now // TODO: last change of dir content
+			log.Info("set Modified = now")
+			gi.Modified = now
 		}
 	} else {
+		log.Info("git is not available")
 		abs, err := filepath.Abs(path)
 		if err != nil {
 			return errors.Wrap(err, "Resolve relative path")
 		}
 		gi.Repository = "file://" + abs
 		gi.Version = "v0.0.0-" + now.Format("20060102150405")
-		gi.Modified = now // TODO: last change of dir content
+		gi.Modified = now
 	}
 	return nil
 }
 
 // Write saves GitInfo data to file, prepare it if none given
 func (srv Service) Write(path string, gi *GitInfo) error {
-
+	srv.Log.V(1).Info("Write gitinfo", "file", path)
 	if gi == nil {
-		if srv.Config.Debug {
-			log.Printf("Looking in %s", path)
-		}
+		srv.Log.V(1).Info("Fetching git metadata")
 		gi = &GitInfo{}
 		err := srv.Make(path, gi)
 		if err != nil {
@@ -115,12 +125,10 @@ func (srv Service) Write(path string, gi *GitInfo) error {
 		return errors.Wrap(err, "Create gitinfo file")
 	}
 	defer f.Close()
-
 	out, err := json.MarshalIndent(gi, "", "  ")
 	if err != nil {
 		return errors.Wrap(err, "Create gitinfo json")
 	}
-
 	_, err = f.WriteString(string(out) + "\n") //ioutil.WriteFile(p, out, os.FileMode(mode))
 	if err != nil {
 		return errors.Wrap(err, "Write gitinfo file")
@@ -157,46 +165,32 @@ func Modified(path string, rv *time.Time) error {
 	return MkTime(out, rv)
 }
 
-// MkTime converts []byte to time.Time
-func MkTime(in []byte, rv *time.Time) error {
-	tm, err := strconv.ParseInt(string(in), 10, 64)
-	if err != nil {
-		return err
-	}
-	*rv = time.Unix(tm, 0)
-	return nil
-}
-
 // File is an interface for FileSystem.Open func
 type File interface {
 	io.Closer
 	io.Reader
-	io.Seeker
-	Readdir(count int) ([]os.FileInfo, error)
-	Stat() (os.FileInfo, error)
+	//	io.Seeker
+	//	Readdir(count int) ([]os.FileInfo, error)
+	//	Stat() (os.FileInfo, error)
 }
 
 // FileSystem holds all of used filesystem access methods
 type FileSystem interface {
-	Walk(root string, walkFn filepath.WalkFunc) error
 	Open(name string) (File, error)
 }
 
 // Read reads GitInfo data from file
 func (srv Service) Read(fs FileSystem, path string) (*GitInfo, error) {
-
 	fn := filepath.Join(path, srv.Config.File)
 	file, err := fs.Open(fn)
 	if err != nil {
 		return nil, errors.Wrap(err, "Open gitinfo file")
 	}
 	defer file.Close()
-
 	js, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, errors.Wrap(err, "Read gitinfo file")
 	}
-
 	gi := GitInfo{}
 	err = json.Unmarshal(js, &gi)
 	if err != nil {
@@ -205,13 +199,46 @@ func (srv Service) Read(fs FileSystem, path string) (*GitInfo, error) {
 	return &gi, nil
 }
 
-// ReadOrMake reads GitInfo data from file or makes it from git
+// ReadOrMake reads GitInfo data from file or makes it from git on the fly
 func (srv Service) ReadOrMake(fs FileSystem, path string) (*GitInfo, error) {
-
 	gi, err := srv.Read(fs, path)
 	if err != nil {
 		gi = &GitInfo{}
 		err = srv.Make(path, gi)
 	}
 	return gi, err
+}
+
+// fileIsDirOrDirLink returns true if path is a dir or symlink to dir
+func fileIsDirOrDirLink(path string) (bool, error) {
+	file, err := os.Stat(path)
+	if err != nil {
+
+		return false, err
+	}
+	if file.IsDir() {
+		return true, nil
+	}
+	if file.Mode()&os.ModeSymlink != 0 {
+		var linkSrc string
+		linkSrc, err = filepath.EvalSymlinks(filepath.Join(path, file.Name()))
+		if err == nil {
+			var fi os.FileInfo
+			fi, err = os.Lstat(linkSrc)
+			if err == nil {
+				return fi.IsDir(), nil
+			}
+		}
+	}
+	return false, err
+}
+
+// MkTime converts to time.Time result of git show -s --format=format:%ct HEAD
+func MkTime(in []byte, rv *time.Time) error {
+	tm, err := strconv.ParseInt(string(in), 10, 64)
+	if err != nil {
+		return err
+	}
+	*rv = time.Unix(tm, 0)
+	return nil
 }

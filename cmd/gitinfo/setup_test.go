@@ -1,31 +1,57 @@
-package main
+package main_test
 
 import (
-	"os"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	cmd "github.com/pgmig/gitinfo/cmd/gitinfo"
 )
 
-func TestRun(t *testing.T) {
-	// Save original args
-	a := os.Args
+func TestSetupConfig(t *testing.T) {
+	cfg, err := cmd.SetupConfig("./")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+}
 
+func TestSetupLog(t *testing.T) {
 	tests := []struct {
-		name string
-		code int
-		args []string
+		name     string
+		debug    bool
+		wantRows []string
 	}{
-		{"Help", 3, []string{"-h"}},
-		{"UnknownFlag", 2, []string{"-0"}},
+		{"Debug", true, []string{"debug", "info", "error"}},
+		{"NoDebug", false, []string{"info", "error"}},
 	}
 	for _, tt := range tests {
-		os.Args = append([]string{a[0]}, tt.args...)
-		var c int
-		run(func(code int) { c = code })
-		assert.Equal(t, tt.code, c, tt.name)
+		logRows := []string{}
+		hook := func(e zapcore.Entry) error {
+			logRows = append(logRows, e.Message)
+			return nil
+		}
+		l := cmd.SetupLog(tt.debug, zap.Hooks(hook))
+		l.V(1).Info("debug")
+		l.Info("info")
+		l.Error(nil, "error")
+		assert.Equal(t, tt.wantRows, logRows)
 	}
+}
 
-	// Restore original args
-	os.Args = a
+func TestShutdown(t *testing.T) {
+	err := errors.New("unknown")
+	logRows := []string{}
+	hook := func(e zapcore.Entry) error {
+		logRows = append(logRows, e.Message)
+		return nil
+	}
+	l := cmd.SetupLog(false, zap.Hooks(hook))
+	var c int
+
+	cmd.Shutdown(func(code int) { c = code }, err, l)
+	assert.Equal(t, 1, c)
+	assert.Equal(t, []string{"Run error"}, logRows)
 }

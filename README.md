@@ -1,6 +1,6 @@
 # gitinfo
-Get git repo metagata (lib) and generate gitinfo.json via go generate (cmd)
 
+> Get git repo metagata (lib) and generate gitinfo.json via go generate (cmd)
 
 [![GoDoc][gd1]][gd2]
  [![codecov][cc1]][cc2]
@@ -24,32 +24,47 @@ Get git repo metagata (lib) and generate gitinfo.json via go generate (cmd)
 
 ## Install
 
-```
+```sh
 go get github.com/pgmig/gitinfo/...
 ```
+
 ## Usage
 
 ### Create gitinfo.json
 
-...
+Run go:generate just before embedding:
+
+```go
+// Generate gitinfo.json
+//go:generate gitinfo ../../../html
+
+// Generate resource.go by [parcello](github.com/phogolabs/parcello)
+//go:generate parcello -q -r -d ../../../html
+```
 
 ### Read gitinfo.json
 
-...
+Read metadata from .gitinfo.json if it exists. Fetch from git otherwise
 
-### Make a struct with gitinfo data
-
-...
+```go
+var gi gitinfo.GitInfo
+err = gitinfo.New(log, cfg).Make("cmd/", &gi)
+```
 
 ### Generate gitinfo.json for single dir
 
-```
+```go
 //go:generate gitinfo dir
 ```
 
-### Generate gitinfo.json for dir/*/ dirs
+### Generate gitinfo.json files for dir/*/ dirs
 
-```
-//go:generate gitinfo dir/
+```go
+//go:generate gitinfo dir/*
 ```
 
+## License
+
+The MIT License (MIT), see [LICENSE](LICENSE).
+
+Copyright (c) 2019-2021 Aleksey Kovrizhkin <lekovr+pgmig@gmail.com>
